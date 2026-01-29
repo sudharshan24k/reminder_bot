@@ -40,6 +40,9 @@ function buildReminderMessage(
   return `🔔 📢 Reminder:\nThis is a reminder for you to ${intent} at ${time}.`;
 }
 
+// Track processed reminders to prevent duplicates in the same minute
+const processedReminders = new Set<string>();
+
 export const initScheduler = () => {
   cron.schedule('* * * * *', async () => {
     console.log('--- Scheduler Tick ---');
@@ -47,9 +50,27 @@ export const initScheduler = () => {
     try {
       const now = new Date();
 
+      // Safety check: Don't process reminders older than 7 days
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - 7);
+
+      // ✅ TIMING FIX: Only process reminders scheduled for the current minute
+      // This prevents early triggering and ensures exact timing
+      const currentMinuteStart = new Date(now);
+      currentMinuteStart.setSeconds(0, 0);
+
+      const currentMinuteEnd = new Date(now);
+      currentMinuteEnd.setSeconds(59, 999);
+
+      // ✅ CRITICAL FIX: Use the later of currentMinuteStart or cutoffDate
+      const queryStartDate = currentMinuteStart > cutoffDate ? currentMinuteStart : cutoffDate;
+
       const reminders = await Reminder.find({
         status: 'pending',
-        scheduledAt: { $lte: now }
+        scheduledAt: {
+          $gte: queryStartDate,
+          $lte: currentMinuteEnd
+        }
       }).populate('user');
 
       if (reminders.length === 0) {
@@ -60,6 +81,14 @@ export const initScheduler = () => {
       console.log(`Found ${reminders.length} due reminders.`);
 
       for (const reminder of reminders) {
+        // ✅ DEDUPLICATION: Skip if already processed in this tick
+        const reminderId = reminder._id.toString();
+        if (processedReminders.has(reminderId)) {
+          console.log(`⏭️ Skipping already processed reminder ${reminderId}`);
+          continue;
+        }
+        processedReminders.add(reminderId);
+
         const user: any = reminder.user;
 
         if (!user?.platform || !user?.platformId || !user?.timezone) {
@@ -108,21 +137,34 @@ export const initScheduler = () => {
             if (nextDate) nextDate.setUTCSeconds(0, 0);
           }
 
-          if (nextDate) {
-            await Reminder.create({
-              user: reminder.user,
-              text: reminder.text,
-              originalText: reminder.originalText,
-              scheduledAt: nextDate,
-              status: 'pending',
-              recurrence: reminder.recurrence
-            });
-          }
-
+          // ✅ CRITICAL FIX: Mark as sent BEFORE creating next reminder
+          // This prevents infinite loops if recurrence creation fails
           reminder.status = 'sent';
           await reminder.save();
-
           console.log(`✅ Reminder ${reminder._id} marked as SENT.`);
+
+          // Create next recurring reminder if applicable
+          if (nextDate) {
+            try {
+              // ✅ CRITICAL FIX: Use user._id instead of populated user object
+              const userId = typeof reminder.user === 'object' && 'platformId' in reminder.user
+                ? (reminder.user as any)._id
+                : reminder.user;
+
+              await Reminder.create({
+                user: userId,
+                text: reminder.text,
+                originalText: reminder.originalText,
+                scheduledAt: nextDate,
+                status: 'pending',
+                recurrence: reminder.recurrence
+              });
+              console.log(`✅ Next recurring reminder created for ${nextDate.toISOString()}`);
+            } catch (recurrenceError) {
+              console.error(`❌ Failed to create next recurring reminder:`, recurrenceError);
+              // Don't throw - the current reminder is already marked as sent
+            }
+          }
         } catch (err) {
           console.error(`❌ Failed reminder ${reminder._id}`, err);
         }
@@ -133,4 +175,10 @@ export const initScheduler = () => {
 
     console.log('----------------------');
   });
+
+  // Clear processed reminders cache every 5 minutes to prevent memory buildup
+  setInterval(() => {
+    processedReminders.clear();
+    console.log('🧹 Cleared processed reminders cache');
+  }, 5 * 60 * 1000);
 };

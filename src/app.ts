@@ -115,13 +115,39 @@ if (
   });
 
   // Graceful shutdown
-  process.once('SIGINT', () => telegramBot.stop('SIGINT'));
-  process.once('SIGTERM', () => telegramBot.stop('SIGTERM'));
+  const gracefulShutdown = async (signal: string) => {
+    console.log(`\n${signal} received. Starting graceful shutdown...`);
+
+    try {
+      // Stop Telegram bot
+      await telegramBot.stop(signal);
+      console.log('✅ Telegram bot stopped');
+
+      // Close Express server
+      server.close(() => {
+        console.log('✅ Express server closed');
+      });
+
+      // Close MongoDB connection
+      const mongoose = await import('mongoose');
+      await mongoose.default.disconnect();
+      console.log('✅ MongoDB disconnected');
+
+      console.log('✅ Graceful shutdown complete');
+      process.exit(0);
+    } catch (error) {
+      console.error('❌ Error during shutdown:', error);
+      process.exit(1);
+    }
+  };
+
+  process.once('SIGINT', () => gracefulShutdown('SIGINT'));
+  process.once('SIGTERM', () => gracefulShutdown('SIGTERM'));
 } else {
   console.log('Telegram Token not set, skipping bot launch.');
 }
 
 // Start server
-app.listen(port, () => {
+const server = app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });
