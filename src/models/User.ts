@@ -1,22 +1,15 @@
-import mongoose, { Schema, Document } from 'mongoose';
+import mongoose from 'mongoose';
 
-export interface IUser extends Document {
-    platform: 'whatsapp' | 'telegram';
-    platformId: string;
-    name?: string;
-    language: string;
-    createdAt: Date;
-}
+const UserSchema = new mongoose.Schema({
+  platform: String,
+  platformId: String,
+  name: String,
 
-const UserSchema: Schema = new Schema({
-    platform: { type: String, required: true, enum: ['whatsapp', 'telegram'] },
-    platformId: { type: String, required: true },
-    name: { type: String },
-    language: { type: String, default: 'en' },
-    createdAt: { type: Date, default: Date.now }
+  // ✅ NEW
+  timezone: {
+    type: String,
+    default: null, // e.g. "Asia/Kolkata"
+  },
 });
 
-// Compound index to ensure unique user per platform
-UserSchema.index({ platform: 1, platformId: 1 }, { unique: true });
-
-export default mongoose.model<IUser>('User', UserSchema);
+export default mongoose.model('User', UserSchema);
