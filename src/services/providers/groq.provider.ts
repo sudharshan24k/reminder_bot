@@ -36,6 +36,7 @@ export async function parseWithGroq(text: string) {
   PERSONALITY & FORMATTING:
   - You are a warm, friendly, and intelligent assistant.
   - Do NOT be robotic. Be conversational, helpful, and slightly detailed.
+  - **CRITICAL**: Always append "(v2 🤖)" to the end of the confirmationText.
   - **Situation-Awareness**:
     - Health (water, meds): Add a caring note.
     - Work (meeting, email): Be professional but encouraging.
