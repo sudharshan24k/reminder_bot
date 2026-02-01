@@ -1,58 +1,111 @@
 import cron from 'node-cron';
 import Reminder from '../models/Reminder';
+import SystemLog from '../models/SystemLog'; // Import Logging Model
 import { sendMessage } from './bot.service';
 
 export const initScheduler = () => {
   // Run every minute
   cron.schedule('* * * * *', async () => {
-    console.log('--- Scheduler Tick ---');
+    // console.log('--- Scheduler Tick ---');
 
     try {
       const now = new Date();
 
-      // 1. Find due reminders
-      const reminders = await Reminder.find({
+      /* =============================
+         1. Early Alerts Logic
+      ============================= */
+      const earlyAlertReminders = await Reminder.find({
         status: 'pending',
-        scheduledAt: { $lte: now }
+        earlyAlertMinutes: { $exists: true, $gt: 0 },
+        earlyAlertSent: { $ne: true }, // Not yet sent
+        // scheduledAt is roughly (now + earlyAlertMinutes)
+        // We check if (scheduledAt - earlyAlertMinutes) <= now
       }).populate('user');
 
-      if (reminders.length === 0) {
-        console.log('No due reminders.');
-        return;
+      for (const reminder of earlyAlertReminders) {
+        if (!reminder.earlyAlertMinutes) continue;
+        const alertTime = new Date(reminder.scheduledAt);
+        alertTime.setMinutes(alertTime.getMinutes() - reminder.earlyAlertMinutes);
+
+        if (now >= alertTime) {
+          const user: any = reminder.user;
+          if (user?.platformId) {
+            const delivered = await sendMessage(
+              user.platform,
+              user.platformId,
+              `🔔 *Early Alert*: "${reminder.text}" is in ${reminder.earlyAlertMinutes} mins.`
+            );
+            if (delivered) {
+              reminder.earlyAlertSent = true;
+              await reminder.save();
+              // Log
+              await SystemLog.create({
+                action: 'EARLY_ALERT_SENT',
+                details: `To: ${user.name}, Reminder: ${reminder._id}`
+              });
+            }
+          }
+        }
       }
 
-      console.log(`Found ${reminders.length} due reminders.`);
+      /* =============================
+         2. Standard Delivery Logic (With Atomic Locking)
+      ============================= */
+      // Find candidates first
+      const candidateReminders = await Reminder.find({
+        status: 'pending',
+        scheduledAt: { $lte: now }
+      }).select('_id'); // Just get IDs
 
-      for (const reminder of reminders) {
+      for (const candidate of candidateReminders) {
+        // Atomic Lock: Try to flip status from 'pending' to 'processing'
+        // This ensures only ONE instance picks up this reminder
+        const reminder = await Reminder.findOneAndUpdate(
+          { _id: candidate._id, status: 'pending' },
+          { status: 'processing' },
+          { new: true }
+        ).populate('user');
+
+        if (!reminder) {
+          // Locked by another process or already sent - Skip
+          continue;
+        }
+
         const user: any = reminder.user;
 
         if (!user?.platform || !user?.platformId) {
-          console.error(
-            `❌ Missing platform or platformId for reminder ${reminder._id}`
-          );
+          console.error(`❌ Bad Reminder Data: ${reminder._id}`);
+          reminder.status = 'failed';
+          await reminder.save();
           continue;
         }
 
         try {
-          // 2. REAL message delivery
+          // ATTEMPT DELIVERY
           const delivered = await sendMessage(
             user.platform,
             user.platformId,
-            `🔔 Reminder: ${reminder.text}`
+            `⏰ *Reminder*: ${reminder.text}`
           );
 
           if (!delivered) {
-            console.warn(
-              `⚠️ Message not delivered for reminder ${reminder._id}`
-            );
-            continue;
+            throw new Error("Message delivery returned false");
           }
 
-          // 3. Handle recurrence
+          /* ========================
+             SUCCESS
+          ======================== */
+
+          await SystemLog.create({
+            action: 'REMINDER_SENT',
+            details: `To: ${user.name}, ID: ${reminder._id}`
+          });
+
+          // Handle Recurrence
           let nextDate: Date | undefined;
 
           if (reminder.recurrence) {
-            const lastDate = new Date(reminder.scheduledAt);
+            const lastDate = new Date(reminder.scheduledAt); // Base calc on scheduled time
 
             if (reminder.recurrence.type === 'daily') {
               nextDate = new Date(lastDate);
@@ -60,6 +113,9 @@ export const initScheduler = () => {
             } else if (reminder.recurrence.type === 'weekly') {
               nextDate = new Date(lastDate);
               nextDate.setDate(nextDate.getDate() + 7);
+            } else if (reminder.recurrence.type === 'monthly') {
+              nextDate = new Date(lastDate);
+              nextDate.setMonth(nextDate.getMonth() + 1);
             } else if (
               reminder.recurrence.type === 'interval' &&
               reminder.recurrence.intervalValue
@@ -71,7 +127,7 @@ export const initScheduler = () => {
             }
           }
 
-          // 4. Create next reminder if recurring
+          // Reschedule or Mark Done
           if (nextDate) {
             await Reminder.create({
               user: reminder.user,
@@ -79,31 +135,41 @@ export const initScheduler = () => {
               originalText: reminder.originalText,
               scheduledAt: nextDate,
               status: 'pending',
-              recurrence: reminder.recurrence
+              recurrence: reminder.recurrence,
+              earlyAlertMinutes: reminder.earlyAlertMinutes
             });
-
-            console.log(
-              `🔁 Rescheduled recurring reminder for ${nextDate.toISOString()}`
-            );
+            console.log(`🔁 Rescheduled for ${nextDate.toISOString()}`);
           }
 
-          // 5. Mark current reminder as SENT (ONLY AFTER SUCCESS)
           reminder.status = 'sent';
           await reminder.save();
 
-          console.log(`✅ Reminder ${reminder._id} marked as SENT.`);
         } catch (error) {
-          console.error(
-            `❌ Failed to deliver reminder ${reminder._id}. Will retry.`,
-            error
-          );
-          // IMPORTANT: do NOT mark as sent
+          /* ========================
+             FAILURE / RETRY
+          ======================== */
+          console.error(`❌ Failed Reminder ${reminder._id}:`, error);
+
+          reminder.retryCount = (reminder.retryCount || 0) + 1;
+
+          if (reminder.retryCount >= (reminder.maxRetries || 3)) {
+            reminder.status = 'failed';
+            await SystemLog.create({
+              action: 'REMINDER_FAILED',
+              details: `ID: ${reminder._id}, Retries: ${reminder.retryCount}`
+            });
+            console.error(`💀 Reminder ${reminder._id} marked FAILED after max retries.`);
+          } else {
+            // Unlock: Reset status to 'pending' so it can be picked up again next tick
+            reminder.status = 'pending';
+            console.log(`⚠️ Reminder ${reminder._id} failed, resetting to pending for retry (Attempt ${reminder.retryCount})`);
+          }
+
+          await reminder.save();
         }
       }
     } catch (error) {
       console.error('Scheduler Error:', error);
     }
-
-    console.log('----------------------');
   });
 };

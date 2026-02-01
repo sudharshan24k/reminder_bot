@@ -1,16 +1,19 @@
-/*import axios from 'axios';
+import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
 import ffmpeg from 'fluent-ffmpeg';
 import { path as ffmpegPath } from '@ffmpeg-installer/ffmpeg';
-import OpenAI from 'openai';
+import Groq from 'groq-sdk';
 import { v4 as uuidv4 } from 'uuid';
 import dotenv from 'dotenv';
+import { config } from '../config/env';
+
 dotenv.config();
 
 ffmpeg.setFfmpegPath(ffmpegPath);
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+// LAZY INITIALIZATION inside function to prevent startup crashes if key is missing/loaded late
+// const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 const downloadFile = async (url: string, outputPath: string, headers: any = {}) => {
     const writer = fs.createWriteStream(outputPath);
@@ -24,7 +27,7 @@ const downloadFile = async (url: string, outputPath: string, headers: any = {}) 
     return new Promise((resolve, reject) => {
         response.data.pipe(writer);
         let error: Error | null = null;
-        writer.on('error', (err) => {
+        writer.on('error', (err: any) => {
             error = err;
             writer.close();
             reject(err);
@@ -45,62 +48,71 @@ const convertToMp3 = (inputPath: string, outputPath: string): Promise<string> =>
     });
 };
 
-export const transcribeAudio = async (url: string, platform: 'whatsapp' | 'telegram') => {
+export const transcribeAudio = async (url: string, platform: 'whatsapp' | 'telegram'): Promise<string | null> => {
+    // Determine temp dir relatively or absolutely
     const tempDir = path.join(__dirname, '../../temp');
     if (!fs.existsSync(tempDir)) {
         fs.mkdirSync(tempDir, { recursive: true });
     }
 
     const fileId = uuidv4();
-    const inputPath = path.join(tempDir, `${fileId}_input`); // Extension depends on platform (oga, ogg, etc)
+    const inputPath = path.join(tempDir, `${fileId}_input`);
     const outputPath = path.join(tempDir, `${fileId}.mp3`);
+
+    // Add necessary extension for ffmpeg detection
+    // WhatsApp often sends .ogg (Opus), Telegram .oga (Opus)
+    const inputPathWithExt = inputPath + '.ogg';
 
     try {
         let headers = {};
         if (platform === 'whatsapp') {
-            headers = { Authorization: `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}` };
+            headers = { Authorization: `Bearer ${config.whatsappToken}` };
         }
+        // Telegram URL contains token, no header needed usually for file download
 
-        // Determine extension mostly for debugging or if ffmpeg needs it, but ffmpeg usually auto-detects.
-        // However, saving without extension might confuse it.
-        // Telegram usually sends .oga (Opus). WhatsApp .ogg (Opus).
-        // Let's force .ogg for input.
-        const inputPathWithExt = inputPath + '.ogg';
-
+        console.log(`⬇️ Downloading audio from ${platform}...`);
         await downloadFile(url, inputPathWithExt, headers);
 
-        // Convert to MP3 (Whisper supports OGG but MP3 is safer standard)
         console.time(`Transcode-${fileId}`);
+        console.log(`🎵 Converting to MP3...`);
         await convertToMp3(inputPathWithExt, outputPath);
         console.timeEnd(`Transcode-${fileId}`);
 
-        console.time(`Whisper-${fileId}`);
-        const transcription = await openai.audio.transcriptions.create({
+        console.time(`GroqWhisper-${fileId}`);
+        console.log(`🗣 Transcribing with Groq Whisper...`);
+
+
+
+        if (!config.groqApiKey) {
+            throw new Error("GROQ_API_KEY is not set in environment");
+        }
+
+        const groq = new Groq({ apiKey: config.groqApiKey });
+
+        // Groq SDK requires a ReadStream (or File object)
+        const transcription = await groq.audio.transcriptions.create({
             file: fs.createReadStream(outputPath),
-            model: "whisper-1",
+            model: "whisper-large-v3", // Best for multilingual/Hinglish
+            response_format: "json", // or 'text'
+            language: "en", // Optional: prompting 'en' might help mixed Hinglish, or leave auto
+            // prompt: "Transcribe Hindi or English audio." 
         });
-        console.timeEnd(`Whisper-${fileId}`);
+        console.timeEnd(`GroqWhisper-${fileId}`);
+
+        const text = transcription.text;
+        console.log(`📝 Transcribed: "${text}"`);
 
         // Cleanup
         if (fs.existsSync(inputPathWithExt)) fs.unlinkSync(inputPathWithExt);
         if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
 
-        return transcription.text;
+        return text;
 
     } catch (error) {
-        console.error('Transcription Error:', error);
+        console.error('❌ Transcription Error:', error);
         // Cleanup on error
-        if (fs.existsSync(inputPath + '.ogg')) fs.unlinkSync(inputPath + '.ogg');
+        if (fs.existsSync(inputPathWithExt)) fs.unlinkSync(inputPathWithExt);
         if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
         return null;
     }
-};*/
-export async function transcribeAudio(
-  _filePath: string,
-  _platform: 'telegram' | 'whatsapp'
-) {
-  // Voice support disabled for local testing
-  return "";
-}
-
-
+};

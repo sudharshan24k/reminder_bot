@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Dashboard - Reminder Assistant</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            background: #f4f6f9;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 250px;
+            background: #2c3e50;
+            color: #ecf0f1;
+            display: flex;
+            flex-direction: column;
+            padding: 20px 0;
+        }
+
+        .sidebar h2 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 1.5em;
+        }
+
+        .nav-item {
+            padding: 15px 25px;
+            cursor: pointer;
+            transition: background 0.3s;
+            font-size: 1.1em;
+        }
+
+        .nav-item:hover,
+        .nav-item.active {
+            background: #34495e;
+            border-left: 4px solid #3498db;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            padding: 40px;
+            overflow-y: auto;
+        }
+
+        .section {
+            display: none;
+        }
+
+        .section.active {
+            display: block;
+        }
+
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 30px;
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 20px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            text-align: center;
+        }
+
+        .stat-card h3 {
+            margin: 0;
+            font-size: 2.5em;
+            color: #2c3e50;
+        }
+
+        .stat-card p {
+            margin: 10px 0 0;
+            color: #7f8c8d;
+            text-transform: uppercase;
+            font-size: 0.9em;
+            letter-spacing: 1px;
+        }
+
+        /* Tables */
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            margin-top: 20px;
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+
+        th {
+            background: #f8f9fa;
+            color: #2c3e50;
+            font-weight: 600;
+        }
+
+        tr:hover {
+            background: #f9f9f9;
+        }
+
+        /* Badges */
+        .badge {
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: bold;
+        }
+
+        .badge-success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .badge-warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .badge-danger {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .badge-info {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: opacity 0.3s;
+        }
+
+        .btn:hover {
+            opacity: 0.8;
+        }
+
+        .btn-danger {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .btn-success {
+            background: #2ecc71;
+            color: white;
+        }
+
+        .btn-primary {
+            background: #3498db;
+            color: white;
+        }
+
+        /* Controls */
+        .controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .limit-input {
+            width: 60px;
+            padding: 4px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="sidebar">
+        <h2>🤖 Admin</h2>
+        <div class="nav-item active" id="nav-dashboard">Dashboard</div>
+        <div class="nav-item" id="nav-users">Users</div>
+        <div class="nav-item" id="nav-reminders">Reminders</div>
+        <div class="nav-item" id="nav-logs">System Logs</div>
+        <div style="flex-grow:1"></div>
+        <div class="nav-item" id="nav-logout" style="background:#c0392b;">Logout</div>
+    </div>
+
+    <div class="main-content">
+        <!-- Dashboard Section -->
+        <div id="dashboard" class="section active">
+            <h1>Dashboard Overview</h1>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3 id="totalUsers">-</h3>
+                    <p>Total Users</p>
+                </div>
+                <div class="stat-card">
+                    <h3 id="activeUsers">-</h3>
+                    <p>Active Users</p>
+                </div>
+                <div class="stat-card">
+                    <h3 id="totalReminders">-</h3>
+                    <p>Total Reminders</p>
+                </div>
+                <div class="stat-card">
+                    <h3 id="pendingReminders">-</h3>
+                    <p>Pending Reminders</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Recent System Logs</h3>
+                <table id="recentLogsTable">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Action</th>
+                            <th>Details</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Users Section -->
+        <div id="users" class="section">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h1>User Management</h1>
+                <select id="userFilter" style="padding: 8px; border-radius: 4px; border: 1px solid #ccc;">
+                    <option value="all">All Platforms</option>
+                    <option value="whatsapp">WhatsApp</option>
+                    <option value="telegram">Telegram</option>
+                </select>
+            </div>
+            <div class="card">
+                <table id="usersTable">
+                    <thead>
+                        <tr>
+                            <th>Platform</th>
+                            <th>Name</th>
+                            <th>Reminders (Pending / Total)</th>
+                            <th>Limit</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Reminders Section -->
+        <div id="reminders" class="section">
+            <div style="margin-bottom: 20px;">
+                <h1>Active Reminders</h1>
+
+                <!-- Filters Toolbar -->
+                <div
+                    style="display: flex; gap: 10px; flex-wrap: wrap; background: white; padding: 15px; border-radius: 8px; align-items: flex-end;">
+
+                    <div style="flex: 1; min-width: 150px;">
+                        <label style="display:block; font-size:0.8em; color:#777; margin-bottom:5px;">Platform</label>
+                        <select id="reminderFilterPlatform" class="form-control"
+                            style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                            <option value="all">All Platforms</option>
+                            <option value="whatsapp">WhatsApp</option>
+                            <option value="telegram">Telegram</option>
+                        </select>
+                    </div>
+
+                    <div style="flex: 1; min-width: 150px;">
+                        <label style="display:block; font-size:0.8em; color:#777; margin-bottom:5px;">Status</label>
+                        <select id="reminderFilterStatus" class="form-control"
+                            style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                            <option value="all">All Statuses</option>
+                            <option value="pending">Pending</option>
+                            <option value="processing">Processing</option>
+                            <option value="sent">Sent</option>
+                            <option value="failed">Failed</option>
+                        </select>
+                    </div>
+
+                    <div style="flex: 2; min-width: 200px;">
+                        <label style="display:block; font-size:0.8em; color:#777; margin-bottom:5px;">Search
+                            Message</label>
+                        <input type="text" id="reminderFilterMessage" placeholder="Type to search..."
+                            style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                    </div>
+
+                    <div style="flex: 1; min-width: 150px;">
+                        <label style="display:block; font-size:0.8em; color:#777; margin-bottom:5px;">User Name</label>
+                        <input type="text" id="reminderFilterUser" placeholder="User..."
+                            style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                    </div>
+
+                    <div style="flex: 1; min-width: 150px;">
+                        <label style="display:block; font-size:0.8em; color:#777; margin-bottom:5px;">Scheduled
+                            Date</label>
+                        <input type="date" id="reminderFilterDate"
+                            style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <table id="remindersTable">
+                    <thead>
+                        <tr>
+                            <th>User</th>
+                            <th>Platform</th>
+                            <th>Message</th>
+                            <th>Scheduled For</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Logs Section -->
+        <div id="logs" class="section">
+            <h1>System Audit Logs</h1>
+            <div class="card">
+                <table id="fullLogsTable">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Action</th>
+                            <th>Target User</th>
+                            <th>Details</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // If served from port 3001 (dev), point to 3000. Otherwise (prod), use relative path.
+        const IS_DEV = window.location.port === '3001';
+        // In local dev (port 3001), use explicit localhost:3000. In prod (same origin), use relative path.
+        const API_BASE = IS_DEV ? 'http://localhost:3000/api/admin' : '/api/admin';
+
+        // Force clear if corrupted
+        try {
+            if (localStorage.getItem('admin_token') === 'null') localStorage.removeItem('admin_token');
+        } catch (e) { }
+
+        let AUTH_TOKEN = localStorage.getItem('admin_token');
+        let globalUsers = [];
+        let globalReminders = [];
+
+        console.log('Admin Dashboard Loaded. Token present:', !!AUTH_TOKEN);
+
+        // Check authentication on load
+        if (!AUTH_TOKEN) {
+            console.log('No token found, prompting login...');
+            showLoginForm();
+        } else {
+            console.log('Token found, loading stats...');
+            loadStats();
+        }
+
+        // --- EVENT LISTENERS (Fixed for CSP) ---
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('nav-dashboard').addEventListener('click', () => showSection('dashboard'));
+            document.getElementById('nav-users').addEventListener('click', () => showSection('users'));
+            document.getElementById('nav-reminders').addEventListener('click', () => showSection('reminders'));
+            document.getElementById('nav-logs').addEventListener('click', () => showSection('logs'));
+            document.getElementById('nav-logout').addEventListener('click', logout);
+
+            // Filters - Users
+            document.getElementById('userFilter').addEventListener('change', () => renderUsers());
+
+            // Filters - Reminders
+            const remFilters = ['reminderFilterPlatform', 'reminderFilterStatus', 'reminderFilterMessage', 'reminderFilterUser', 'reminderFilterDate'];
+            remFilters.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.addEventListener('input', () => renderReminders()); // Works for text inputs
+                    el.addEventListener('change', () => renderReminders()); // Works for selects/dates
+                }
+            });
+        });
+
+        function showLoginForm() {
+            // Small delay to ensure render
+            setTimeout(() => {
+                const username = prompt('Enter Username:');
+                if (!username) {
+                    alert('Login Required');
+                    return;
+                }
+
+                const password = prompt('Enter Password:');
+                if (!password) {
+                    alert('Login Required');
+                    return;
+                }
+
+                // Create Basic Auth token
+                AUTH_TOKEN = btoa(`${username}:${password}`);
+                localStorage.setItem('admin_token', AUTH_TOKEN);
+                location.reload();
+            }, 100);
+        }
+
+        function logout() {
+            if (confirm('Logout?')) {
+                localStorage.removeItem('admin_token');
+                location.reload();
+            }
+        }
+
+        // Add auth header to all requests
+        async function authFetch(url, options = {}) {
+            const headers = {
+                'Authorization': `Basic ${AUTH_TOKEN}`,
+                ...options.headers
+            };
+
+            try {
+                const res = await fetch(url, { ...options, headers });
+
+                if (res.status === 401 || res.status === 403) {
+                    console.warn('Auth failed (401/403)');
+                    localStorage.removeItem('admin_token');
+                    alert('Session expired or invalid credentials.');
+                    location.reload();
+                    throw new Error('Unauthorized');
+                }
+                return res;
+            } catch (error) {
+                console.error('Fetch Error:', error);
+                throw error;
+            }
+        }
+
+        // Navigation
+        function showSection(id) {
+            document.querySelectorAll('.section').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+
+            document.getElementById(id).classList.add('active');
+
+            // Find nav item by id mapping
+            const navId = 'nav-' + id;
+            const navEl = document.getElementById(navId);
+            if (navEl) navEl.classList.add('active');
+
+            // Load data based on section
+            if (id === 'dashboard') loadStats();
+            if (id === 'users') loadUsers();
+            if (id === 'reminders') loadReminders();
+            if (id === 'logs') loadLogs();
+        }
+
+        // Fetch & Render Functions
+        async function loadStats() {
+            try {
+                const res = await authFetch(`${API_BASE}/stats`);
+                const data = await res.json();
+
+                document.getElementById('totalUsers').innerText = data.totalUsers;
+                document.getElementById('activeUsers').innerText = data.activeUsers;
+                document.getElementById('totalReminders').innerText = data.totalReminders;
+                document.getElementById('pendingReminders').innerText = data.pendingReminders;
+
+                const logsBody = document.querySelector('#recentLogsTable tbody');
+                logsBody.innerHTML = data.recentLogs.map(log => `
+                    <tr>
+                        <td>${new Date(log.timestamp).toLocaleTimeString()}</td>
+                        <td><span class="badge badge-info">${log.action}</span></td>
+                        <td>${JSON.stringify(log.details || {})}</td>
+                    </tr>
+                `).join('');
+            } catch (err) { console.error('Load Stats Failed:', err); }
+        }
+
+        async function loadUsers() {
+            try {
+                const res = await authFetch(`${API_BASE}/users`);
+                globalUsers = await res.json();
+                renderUsers();
+            } catch (err) { console.error('Load Users Failed:', err); }
+        }
+
+        function renderUsers() {
+            const filter = document.getElementById('userFilter').value;
+            const tbody = document.querySelector('#usersTable tbody');
+            tbody.innerHTML = ''; // Clear first
+
+            globalUsers.forEach(user => {
+                if (filter !== 'all' && user.platform !== filter) return;
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>
+                        <span class="badge badge-info">${user.platform}</span><br>
+                        <small>${user.platformId}</small>
+                    </td>
+                    <td>${user.name || 'Unknown'}</td>
+                    <td><b>${user.pendingCount}</b> Pending <span style="color:#777; font-size:0.9em;">(${user.reminderCount} Total)</span></td>
+                    <td>
+                        <div class="controls">
+                            <input type="number" class="limit-input" value="${user.reminderLimit}" id="limit-${user._id}">
+                            <button class="btn btn-primary btn-save-limit" data-userid="${user._id}">Save</button>
+                        </div>
+                    </td>
+                    <td>
+                        ${user.isBanned
+                        ? '<span class="badge badge-danger">Banned</span>'
+                        : '<span class="badge badge-success">Active</span>'}
+                    </td>
+                    <td>
+                        <button class="btn ${user.isBanned ? 'btn-success' : 'btn-danger'} btn-toggle-ban" 
+                            data-userid="${user._id}" data-banned="${user.isBanned}">
+                            ${user.isBanned ? 'Unban' : 'Ban'}
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            // Attach Listeners for dynamic elements
+            document.querySelectorAll('.btn-save-limit').forEach(btn => {
+                btn.addEventListener('click', (e) => updateLimit(e.target.dataset.userid));
+            });
+            document.querySelectorAll('.btn-toggle-ban').forEach(btn => {
+                btn.addEventListener('click', (e) => toggleBan(e.target.dataset.userid, e.target.dataset.banned === 'true'));
+            });
+        }
+
+        async function loadReminders() {
+            try {
+                const res = await authFetch(`${API_BASE}/reminders`);
+                globalReminders = await res.json();
+                renderReminders();
+            } catch (err) { console.error('Load Reminders Failed:', err); }
+        }
+
+        function renderReminders() {
+            // Get Filters
+            const fPlatform = document.getElementById('reminderFilterPlatform').value;
+            const fStatus = document.getElementById('reminderFilterStatus').value;
+            const fMessage = document.getElementById('reminderFilterMessage').value.toLowerCase();
+            const fUser = document.getElementById('reminderFilterUser').value.toLowerCase();
+            const fDate = document.getElementById('reminderFilterDate').value; // YYYY-MM-DD
+
+            const tbody = document.querySelector('#remindersTable tbody');
+            tbody.innerHTML = '';
+
+            globalReminders.forEach(rem => {
+                const platform = rem.user ? rem.user.platform : 'unknown';
+                const userName = rem.user ? (rem.user.name || '').toLowerCase() : '';
+                const message = (rem.text || '').toLowerCase();
+                const status = rem.status;
+
+                // Date Check
+                let dateMatch = true;
+                if (fDate) {
+                    const sched = new Date(rem.scheduledAt);
+                    // Convert sched to local YYYY-MM-DD for comparison
+                    const schedStr = sched.toISOString().split('T')[0];
+                    if (schedStr !== fDate) dateMatch = false;
+                }
+
+                // Apply Filters
+                if (fPlatform !== 'all' && platform !== fPlatform) return;
+                if (fStatus !== 'all' && status !== fStatus) return;
+                if (fMessage && !message.includes(fMessage)) return;
+                if (fUser && !userName.includes(fUser)) return;
+                if (!dateMatch) return;
+
+                // Status Badge Color
+                let badgeClass = 'badge-warning'; // pending
+                if (status === 'processing') badgeClass = 'badge-info';
+                if (status === 'sent') badgeClass = 'badge-success';
+                if (status === 'failed') badgeClass = 'badge-danger';
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${rem.user ? rem.user.name : 'Deleted User'}</td>
+                    <td><span class="badge badge-info">${platform}</span></td>
+                    <td>${rem.text}</td>
+                    <td>${new Date(rem.scheduledAt).toLocaleString()}</td>
+                    <td><span class="badge ${badgeClass}">${status}</span></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        async function loadLogs() {
+            try {
+                const res = await authFetch(`${API_BASE}/logs`);
+                const logs = await res.json();
+
+                const tbody = document.querySelector('#fullLogsTable tbody');
+                tbody.innerHTML = logs.map(log => `
+                     <tr>
+                        <td>${new Date(log.timestamp).toLocaleString()}</td>
+                        <td><span class="badge badge-info">${log.action}</span></td>
+                        <td>${log.targetUserId || '-'}</td>
+                        <td>${JSON.stringify(log.details || {})}</td>
+                    </tr>
+                `).join('');
+            } catch (err) { console.error('Load Logs Failed:', err); }
+        }
+
+        // Actions
+        async function toggleBan(userId, isCurrentBanned) {
+            if (!confirm(`Are you sure you want to ${isCurrentBanned ? 'unban' : 'ban'} this user?`)) return;
+            try {
+                await authFetch(`${API_BASE}/users/${userId}/ban`, { method: 'POST' });
+                loadUsers(); // Refresh
+            } catch (err) { alert('Action failed'); }
+        }
+
+        async function updateLimit(userId) {
+            const limit = document.getElementById(`limit-${userId}`).value;
+            try {
+                await authFetch(`${API_BASE}/users/${userId}/limit`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ limit })
+                });
+                alert('Limit updated!');
+            } catch (err) { alert('Update failed'); }
+        }
+    </script>
+
+</body>
+
+</html>

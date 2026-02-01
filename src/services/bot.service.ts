@@ -1,26 +1,18 @@
 import axios from 'axios';
 import { Telegraf } from 'telegraf';
-import dotenv from 'dotenv';
-dotenv.config();
+import { config } from '../config/env';
 
 /* =========================
    Telegram Setup
 ========================= */
 
-const telegramBotToken = process.env.TELEGRAM_BOT_TOKEN;
-
-if (!telegramBotToken) {
-  console.warn('⚠️ TELEGRAM_BOT_TOKEN not set');
-}
-
-export const telegramBot = new Telegraf(telegramBotToken || 'dummy_token');
+// Config now guarantees these are present or throws on startup
+export const telegramBot = new Telegraf(config.telegramToken);
 
 /* =========================
    WhatsApp Setup
 ========================= */
-
-const whatsappToken = process.env.WHATSAPP_ACCESS_TOKEN;
-const whatsappPhoneId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+const { whatsappToken, whatsappPhoneId } = config;
 
 /* =========================
    Send Message (CRITICAL FIX)
@@ -32,22 +24,27 @@ export const sendMessage = async (
   text: string
 ): Promise<boolean> => {
   if (platform === 'telegram') {
-    if (!telegramBotToken) {
-      throw new Error('Telegram token not set');
-    }
+    const MAX_RETRIES = 3;
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const res = await telegramBot.telegram.sendMessage(platformId, text);
+        console.log(
+          '✅ Telegram message delivered:',
+          `chatId=${platformId}, messageId=${res.message_id}`
+        );
+        return true;
+      } catch (error: any) {
+        const isNetworkError = error.code === 'ECONNRESET' || error.code === 'ETIMEDOUT' || error.type === 'system';
 
-    try {
-      const res = await telegramBot.telegram.sendMessage(platformId, text);
+        if (isNetworkError && attempt < MAX_RETRIES) {
+          console.warn(`⚠️ Telegram sendMessage failed (Attempt ${attempt}/${MAX_RETRIES}). Retrying in ${attempt * 1000}ms...`);
+          await new Promise(resolve => setTimeout(resolve, attempt * 1000));
+          continue;
+        }
 
-      console.log(
-        '✅ Telegram message delivered:',
-        `chatId=${platformId}, messageId=${res.message_id}`
-      );
-
-      return true;
-    } catch (error) {
-      console.error('❌ Telegram sendMessage FAILED:', error);
-      throw error; // IMPORTANT: propagate failure
+        console.error('❌ Telegram sendMessage FAILED:', error);
+        throw error;
+      }
     }
   }
 

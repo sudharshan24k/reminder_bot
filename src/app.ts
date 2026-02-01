@@ -1,5 +1,16 @@
-import express from 'express';
 import dotenv from 'dotenv';
+dotenv.config(); // Must be first
+
+// Extend Express Request type
+declare global {
+    namespace Express {
+        interface Request {
+            subdomain?: 'admin' | 'main';
+        }
+    }
+}
+
+import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
@@ -8,19 +19,45 @@ import { verifyWhatsapp, handleWhatsappEvent } from './controllers/webhook.contr
 import { telegramBot } from './services/bot.service';
 import { handleIncomingMessage } from './services/message_handler.service';
 import { initScheduler } from './services/scheduler.service';
-import { getDashboardStats } from './controllers/admin.controller';
-
-dotenv.config();
+import adminRoutes from './admin/admin.routes';
+import rateLimit from 'express-rate-limit';
 
 const app = express();
 const port = process.env.PORT || 3000;
 
+// Rate Limiter
+const globalLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // Limit each IP to 100 requests per windowMs
+    message: 'Too many requests from this IP, please try again later.'
+});
+
+const apiLimiter = rateLimit({
+    windowMs: 1 * 60 * 1000, // 1 minute
+    max: 20, // Stricter limit for heavy APIs
+    message: 'Too many API requests, please slow down.'
+});
+
+
 // Middleware
-app.use(cors());
-app.use(helmet());
+// CORS Configuration - strict for production
+const corsOptions = {
+    origin: process.env.NODE_ENV === 'production'
+        ? process.env.ALLOWED_ORIGINS?.split(',') || false // Only specified origins in production
+        : true, // Allow all in development
+    credentials: true, // Allow cookies/auth headers
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+};
+
+app.use(cors(corsOptions));
+// app.use(helmet()); // DISABLING HELMET TO FIX CSP ISSUES FOR ADMIN DASHBOARD
 app.use(morgan('dev'));
+app.use('/api/', apiLimiter); // Apply stricter limit to /api routes
+app.use(globalLimiter); // Apply global limit to everything else (like webhooks if not excluded)
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
 
 // Connect to Database
 connectDB();
@@ -29,13 +66,21 @@ connectDB();
 initScheduler();
 
 // Routes
-app.use(express.static('public')); // Serve static files (landing + admin)
+app.use(express.static('public')); // Serve landing page assets
+app.use('/admin', express.static('admin')); // Serve admin assets at /admin
 
+// Root Route -> Landing Page
 app.get('/', (req, res) => {
     res.sendFile('index.html', { root: 'public' });
 });
 
-app.get('/api/admin/stats', getDashboardStats);
+// Admin Route -> Admin Dashboard
+app.get('/admin', (req, res) => {
+    res.sendFile('index.html', { root: 'admin' });
+});
+
+// Admin routes
+app.use(adminRoutes);
 
 import { createReminderController, confirmReminderController, fetchDueRemindersController, createVoiceReminderController } from './controllers/reminder.controller';
 // Explicit Routes for "Do only these"

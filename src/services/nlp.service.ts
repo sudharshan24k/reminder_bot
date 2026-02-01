@@ -64,10 +64,17 @@ import { parseMock } from "./providers/mock.provider";
 import { parseWithGroq } from "./providers/groq.provider";
 
 export async function parseReminderIntent(text: string) {
+  const lowerText = text.toLowerCase();
+
+  // 1. Static FAQ Checks - REMOVED to allow AI Personality
+  // if (lowerText.match(/what.*(do|can).*you.*do/)) { ... }
+
+  // 2. Mock Fallback
   if (process.env.ENABLE_NLP !== "true") {
     return parseMock(text);
   }
 
+  // 3. Groq Provider
   if (!process.env.GROQ_API_KEY) {
     console.warn("⚠️ GROQ_API_KEY missing, falling back to mock NLP");
     return parseMock(text);

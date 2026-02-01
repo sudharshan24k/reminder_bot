@@ -5,6 +5,9 @@ export interface IUser extends Document {
     platformId: string;
     name?: string;
     language: string;
+    isBanned: boolean;
+    reminderLimit: number;
+    tier: 'free' | 'premium';
     createdAt: Date;
 }
 
@@ -13,6 +16,9 @@ const UserSchema: Schema = new Schema({
     platformId: { type: String, required: true },
     name: { type: String },
     language: { type: String, default: 'en' },
+    isBanned: { type: Boolean, default: false },
+    reminderLimit: { type: Number, default: 10 },
+    tier: { type: String, enum: ['free', 'premium'], default: 'free' },
     createdAt: { type: Date, default: Date.now }
 });
 

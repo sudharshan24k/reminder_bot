@@ -5,9 +5,13 @@ export interface IReminder extends Document {
     text: string;
     originalText: string;
     scheduledAt: Date;
-    status: 'pending' | 'sent' | 'failed';
+    status: 'pending' | 'processing' | 'sent' | 'failed';
+    earlyAlertMinutes?: number;
+    earlyAlertSent?: boolean;
+    retryCount: number;
+    maxRetries: number;
     recurrence?: {
-        type: 'daily' | 'weekly' | 'interval';
+        type: 'daily' | 'weekly' | 'monthly' | 'interval';
         intervalValue?: number;
     };
     createdAt: Date;
@@ -18,9 +22,16 @@ const ReminderSchema: Schema = new Schema({
     text: { type: String, required: true },
     originalText: { type: String },
     scheduledAt: { type: Date, required: true },
-    status: { type: String, enum: ['pending', 'sent', 'failed'], default: 'pending' },
+    status: { type: String, enum: ['pending', 'processing', 'sent', 'failed'], default: 'pending' },
+
+    // Delivery Logic
+    earlyAlertMinutes: { type: Number },
+    earlyAlertSent: { type: Boolean, default: false },
+    retryCount: { type: Number, default: 0 },
+    maxRetries: { type: Number, default: 3 },
+
     recurrence: {
-        type: { type: String, enum: ['daily', 'weekly', 'interval'] },
+        type: { type: String, enum: ['daily', 'weekly', 'monthly', 'interval'] },
         intervalValue: { type: Number }
     },
     createdAt: { type: Date, default: Date.now }
