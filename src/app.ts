@@ -23,19 +23,26 @@ import adminRoutes from './admin/admin.routes';
 import rateLimit from 'express-rate-limit';
 
 const app = express();
+app.set('trust proxy', 1); // Required for Hugging Face / Reverse Proxies
 const port = process.env.PORT || 3000;
 
 // Rate Limiter
 const globalLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: 100, // Limit each IP to 100 requests per windowMs
-    message: 'Too many requests from this IP, please try again later.'
+    message: 'Too many requests from this IP, please try again later.',
+    standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+    legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+    validate: { xForwardedForHeader: false } // Disable strict validation to prevent crashes behind proxies
 });
 
 const apiLimiter = rateLimit({
     windowMs: 1 * 60 * 1000, // 1 minute
     max: 20, // Stricter limit for heavy APIs
-    message: 'Too many API requests, please slow down.'
+    message: 'Too many API requests, please slow down.',
+    standardHeaders: true,
+    legacyHeaders: false,
+    validate: { xForwardedForHeader: false }
 });
 
 
@@ -95,10 +102,22 @@ app.get('/webhooks/whatsapp', verifyWhatsapp);
 app.post('/webhooks/whatsapp', handleWhatsappEvent);
 
 // Telegram Polling (for local dev/simplicity)
+const launchBot = async (retries = 5, delay = 3000) => {
+    try {
+        await telegramBot.launch();
+        console.log('✅ Telegram Bot launched successfully');
+    } catch (err) {
+        if (retries > 0) {
+            console.error(`⚠️ Telegram Bot Launch Error: ${err}. Retrying in ${delay / 1000}s... (${retries} attempts left)`);
+            setTimeout(() => launchBot(retries - 1, delay * 2), delay);
+        } else {
+            console.error('❌ Failed to launch Telegram Bot after multiple attempts:', err);
+        }
+    }
+};
+
 if (process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_BOT_TOKEN !== 'dummy_token' && process.env.TELEGRAM_BOT_TOKEN !== 'your_telegram_bot_token') {
-    telegramBot.launch().then(() => {
-        console.log('Telegram Bot launched');
-    }).catch(err => console.error('Telegram Bot Launch Error:', err));
+    launchBot();
 
     telegramBot.on('text', (ctx) => {
         const userId = ctx.from.id.toString();
