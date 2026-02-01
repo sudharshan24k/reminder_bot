@@ -1,5 +1,5 @@
-# Use Node 20
-FROM node:20
+# Use Node 18 (Bullseye) for better DNS stability
+FROM node:18-bullseye
 
 # Install tzdata for Timezone Support
 RUN apt-get update && apt-get install -y tzdata
