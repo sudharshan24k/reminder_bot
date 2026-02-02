@@ -41,7 +41,10 @@ export const handleIncomingMessage = async (
         }
 
         // 2. Parse Intent
-        const nlpResult = await parseReminderIntent(text);
+        // Capture specific time of message processing as the "Reference Time" for NLP
+        // This ensures "in 5 mins" is relative to THIS moment.
+        const referenceTime = new Date();
+        const nlpResult = await parseReminderIntent(text, referenceTime);
 
         if (!nlpResult) {
             await sendMessage(platform, platformId, "Sorry, I encountered an error parsing your request.");

@@ -1,6 +1,6 @@
 import Groq from "groq-sdk";
 
-export async function parseWithGroq(text: string) {
+export async function parseWithGroq(text: string, referenceDate: Date = new Date()) {
   if (!process.env.GROQ_API_KEY) {
     throw new Error("GROQ_API_KEY is missing");
   }
@@ -9,8 +9,9 @@ export async function parseWithGroq(text: string) {
     apiKey: process.env.GROQ_API_KEY,
   });
 
-  // Force IST Time - Use unambiguous format (e.g. "1 Feb 2026, 22:58:00")
-  const istDate = new Date().toLocaleString('en-GB', {
+  // Force IST Time from the PROVIDED reference date
+  // This ensures we use the time the message was received, not when this line runs
+  const istDate = referenceDate.toLocaleString('en-GB', {
     timeZone: 'Asia/Kolkata',
     day: 'numeric',
     month: 'short',
@@ -20,10 +21,11 @@ export async function parseWithGroq(text: string) {
     second: '2-digit',
     hour12: false
   });
+
   const systemPrompt = `
   Context: Current time is ${istDate} (Format: DD Mon YYYY, HH:mm:ss) (Asia/Kolkata / IST).
   Timezone Rule: User inputs are in IST. Return strictly the ISO8601 string with offset "+05:30".
-  Relative Time Rule: If user says "in X mins/hours", ADD that duration to the Current Time context calculated above.
+  Relative Time Rule: CRITICAL. If user says "in X mins/hours", ADD that duration to the Context Time (${istDate}). Do NOT use your own training data time.
   
   Role: You are an Intelligent Reminder Assistant. Your goal is to return a JSON object representing the user's intent.
 

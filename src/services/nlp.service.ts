@@ -63,7 +63,7 @@ export const parseReminderIntent = async (text: string, referenceDate: Date = ne
 import { parseMock } from "./providers/mock.provider";
 import { parseWithGroq } from "./providers/groq.provider";
 
-export async function parseReminderIntent(text: string) {
+export async function parseReminderIntent(text: string, referenceDate: Date = new Date()) {
   const lowerText = text.toLowerCase();
 
   // 1. Static FAQ Checks - REMOVED to allow AI Personality
@@ -80,7 +80,7 @@ export async function parseReminderIntent(text: string) {
     return parseMock(text);
   }
 
-  return parseWithGroq(text);
+  return parseWithGroq(text, referenceDate);
 }
 
 
