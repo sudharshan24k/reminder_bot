@@ -110,16 +110,18 @@ export async function parseWithGroq(text: string, referenceDate: Date = new Date
 
 
 
-  export async function generateFriendlyMessage(task: string): Promise<string> {
-    if (!process.env.GROQ_API_KEY) {
-      return `*Reminder*: ${task}`; // Fallback
-    }
+}
 
-    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+export async function generateFriendlyMessage(task: string): Promise<string> {
+  if (!process.env.GROQ_API_KEY) {
+    return `*Reminder*: ${task}`; // Fallback
+  }
 
-    const systemPrompt = \`
+  const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+
+  const systemPrompt = `
   Role: You are a friendly, witty, and motivating personal assistant.
-  Task: The user needs to be reminded to: "\${task}".
+  Task: The user needs to be reminded to: "${task}".
   Goal: Rewrite this reminder into a short, engaging, and friendly notification (Max 2 sentences).
   
   Styles:
@@ -132,7 +134,7 @@ export async function parseWithGroq(text: string, referenceDate: Date = new Date
   - Do NOT use quotes around the output.
   - Do NOT say "Here is your reminder". Just say the message.
   - Include 1 relevant emoji.
-  \`;
+  `;
 
   try {
     const completion = await groq.chat.completions.create({
@@ -144,10 +146,10 @@ export async function parseWithGroq(text: string, referenceDate: Date = new Date
       ],
     });
 
-    return completion.choices[0].message.content?.trim() || \`*Reminder*: \${task}\`;
+    return completion.choices[0].message.content?.trim() || `*Reminder*: ${task}`;
   } catch (error) {
     console.error('Personality Gen Error:', error);
-    return \`*Reminder*: \${task}\`;
+    return `*Reminder*: ${task}`;
   }
 }
 
