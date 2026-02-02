@@ -10,6 +10,7 @@ export const initScheduler = () => {
 
     try {
       const now = new Date();
+      // console.log(`[Scheduler] Tick at ${now.toISOString()}`);
 
       /* =============================
          1. Early Alerts Logic
@@ -56,6 +57,10 @@ export const initScheduler = () => {
         status: 'pending',
         scheduledAt: { $lte: now }
       }).select('_id'); // Just get IDs
+
+      if (candidateReminders.length > 0) {
+        console.log(`[Scheduler] Found ${candidateReminders.length} due reminders to process.`);
+      }
 
       for (const candidate of candidateReminders) {
         // Atomic Lock: Try to flip status from 'pending' to 'processing'
