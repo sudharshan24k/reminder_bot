@@ -492,7 +492,7 @@
                 const logsBody = document.querySelector('#recentLogsTable tbody');
                 logsBody.innerHTML = data.recentLogs.map(log => `
                     <tr>
-                        <td>${new Date(log.timestamp).toLocaleTimeString()}</td>
+                        <td>${new Date(log.timestamp).toLocaleTimeString('en-GB')}</td>
                         <td><span class="badge badge-info">${log.action}</span></td>
                         <td>${JSON.stringify(log.details || {})}</td>
                     </tr>
@@ -606,7 +606,7 @@
                     <td>${rem.user ? rem.user.name : 'Deleted User'}</td>
                     <td><span class="badge badge-info">${platform}</span></td>
                     <td>${rem.text}</td>
-                    <td>${new Date(rem.scheduledAt).toLocaleString()}</td>
+                    <td>${new Date(rem.scheduledAt).toLocaleString('en-GB')}</td>
                     <td><span class="badge ${badgeClass}">${status}</span></td>
                 `;
                 tbody.appendChild(tr);
@@ -621,7 +621,7 @@
                 const tbody = document.querySelector('#fullLogsTable tbody');
                 tbody.innerHTML = logs.map(log => `
                      <tr>
-                        <td>${new Date(log.timestamp).toLocaleString()}</td>
+                        <td>${new Date(log.timestamp).toLocaleString('en-GB')}</td>
                         <td><span class="badge badge-info">${log.action}</span></td>
                         <td>${log.targetUserId || '-'}</td>
                         <td>${JSON.stringify(log.details || {})}</td>

@@ -53,8 +53,8 @@ export const getReminders = async (req: Request, res: Response) => {
     try {
         const reminders = await Reminder.find()
             .populate('user', 'name platform platformId')
-            .sort({ scheduledAt: 1 })
-            .limit(100); // Limit to last 100 for performance
+            .sort({ status: 1, scheduledAt: 1 }) // Prioritize 'failed'/'pending' over 'sent', then by date
+            .limit(200); // Increased limit slightly for better visibility
         res.json(reminders);
     } catch (error) {
         console.error('Fetch Reminders Error:', error);
