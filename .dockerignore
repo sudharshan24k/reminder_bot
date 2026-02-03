@@ -2,6 +2,14 @@ node_modules
 dist
 .env
 .git
+root_*.ts
+test_*.ts
+check_*.ts
+verify_*.ts
+*.test.ts
+*.spec.ts
+temp/
+coverage/
 .DS_Store
 logs
 npm-debug.log
