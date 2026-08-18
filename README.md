@@ -7,7 +7,7 @@ sdk: docker
 pinned: false
 ---
 
-# 🤖 Intelligent Reminder Chatbot
+# 🤖 Intelligent Reminder Chatbot.
 
 A powerful, AI-driven reminder assistant that works on **WhatsApp** and **Telegram**. It supports natural language (English/Hindi/Hinglish), voice notes, recurring reminders, and includes a full Admin Dashboard.
 
