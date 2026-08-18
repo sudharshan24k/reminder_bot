@@ -11,7 +11,7 @@ pinned: false
 
 A powerful, AI-driven reminder assistant that works on **WhatsApp** and **Telegram**. It supports natural language (English/Hindi/Hinglish), voice notes, recurring reminders, and includes a full Admin Dashboard.
 
-## 🌟 Features
+## 🌟 Features...
 
 -   **Natural Language Processing**: "Remind me to call Mom tomorrow at 5pm" or "Kal subah 9 baje meeting hai".
 -   **Voice Notes**: Send voice messages on WhatsApp/Telegram; they are transcribed and processed automatically.
